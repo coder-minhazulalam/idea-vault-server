@@ -34,12 +34,42 @@ async function run() {
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
     
     const database = client.db("ideavault");
-        // create collection of destination
     const ideasCollection = database.collection("ideas");
+
+       app.get("/ideas", async (req, res) => {
+  try {
+    const result = await ideasCollection.find({}).toArray();
+
+    res.send(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({
+      message: "Failed to fetch ideas",
+    });
+  }
+});
+
+
+       app.get("/ideas/home", async (req, res) => {
+  try {
+       const result = await ideasCollection
+      .aggregate([
+        { $limit: 6 }
+      ])
+      .toArray();
+
+    res.send(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({
+      message: "Failed to fetch ideas",
+    });
+  }
+});
     
 
   } finally {
-    
+    //
   }
 }
 run().catch(console.dir);

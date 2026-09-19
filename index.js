@@ -2,7 +2,7 @@ const express = require("express");
 const app = express();
 const dotenv = require("dotenv")
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 dotenv.config();
 
@@ -49,14 +49,23 @@ async function run() {
   }
 });
 
+app.get("/ideas/:id" , async(req,res)=>{
 
-       app.get("/ideas/home", async (req, res) => {
+  const id =  req.params.id;
+
+     const query =
+            {
+              _id : new ObjectId(id)
+            }
+
+            const result = await ideasCollection.findOne(query)
+            res.send(result)
+})
+
+
+    app.get("/home", async (req, res) => {
   try {
-       const result = await ideasCollection
-      .aggregate([
-        { $limit: 6 }
-      ])
-      .toArray();
+       const result = await ideasCollection.aggregate([{ $limit: 6 }]).toArray();
 
     res.send(result);
   } catch (error) {

@@ -36,6 +36,8 @@ async function run() {
     const database = client.db("ideavault");
     const ideasCollection = database.collection("ideas");
 
+    const commentsCollection = database.collection("commnets");
+
        app.get("/ideas", async (req, res) => {
   try {
     const result = await ideasCollection.find({}).toArray();
@@ -63,7 +65,7 @@ app.get("/ideas/:id" , async(req,res)=>{
 })
 
 
-    app.get("/home", async (req, res) => {
+  app.get("/home", async (req, res) => {
   try {
        const result = await ideasCollection.aggregate([{ $limit: 6 }]).toArray();
 
@@ -75,7 +77,118 @@ app.get("/ideas/:id" , async(req,res)=>{
     });
   }
 });
-    
+
+
+    app.post("/ideas", async (req, res) => {
+      try {
+        const data = req.body;
+        const result = await ideasCollection.insertOne(data);
+        res.json(result);
+      } catch (error) {
+        console.error("Post idea error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    //comments
+
+    app.post("/comments", async (req, res) => {
+      try {
+        const data = req.body;
+        const result = await commentsCollection.insertOne(data);
+        res.json(result);
+      } catch (error) {
+        console.error("Post comment error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    app.get("/comments/:ideaId", async (req, res) => {
+      try {
+        const { ideaId } = req.params;
+        let query = { ideaId: ideaId };
+        if (ObjectId.isValid(ideaId)) {
+          query = { $or: [{ ideaId: ideaId }, { ideaId: new ObjectId(ideaId) }] };
+        }
+
+        const result = await commentsCollection.find(query).toArray();
+        res.status(200).json(result);
+      } catch (error) {
+        console.error("Get comments error:", error);
+        res.status(500).json({
+          message: "Failed to get comments",
+          error: error.message,
+        });
+      }
+    });
+
+
+
+    app.put("/comments/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { comment } = req.body;
+
+        let query = { _id: id };
+        if (ObjectId.isValid(id)) {
+          query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+        }
+
+        const updateDoc = {
+          $set: {
+            comment: comment,
+          },
+        };
+
+        const result = await commentsCollection.updateOne(query, updateDoc);
+        res.json(result);
+      } catch (error) {
+        console.error("Update comment error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    app.patch("/comments/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { comment } = req.body;
+
+        let query = { _id: id };
+        if (ObjectId.isValid(id)) {
+          query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+        }
+
+        const updateDoc = {
+          $set: {
+            comment: comment,
+          },
+        };
+
+        const result = await commentsCollection.updateOne(query, updateDoc);
+        res.json(result);
+      } catch (error) {
+        console.error("Update comment error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    app.delete("/comments/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+        let query = { _id: id };
+        if (ObjectId.isValid(id)) {
+          query = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+        }
+
+        const result = await commentsCollection.deleteOne(query);
+        console.log("Delete comment result for ID:", id, result);
+        res.json(result);
+      } catch (error) {
+        console.error("Delete comment error:", error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
 
   } finally {
     //

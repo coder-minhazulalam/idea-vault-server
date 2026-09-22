@@ -1,19 +1,53 @@
 const express = require("express");
 const app = express();
-const dotenv = require("dotenv")
+const dotenv = require("dotenv");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 dotenv.config();
 
-const PORT = process.env.PORT ;
-const uri= process.env.MONGO_URI;
+const PORT = process.env.PORT || 5000;
+const uri = process.env.MONGO_URI;
+const JWT_SECRET = process.env.ACCESS_TOKEN_SECRET || "default_jwt_secret_ideavault";
 
 app.use(cors());
 app.use(express.json());
 
+// Simple JWT Verification Middleware
+const verifyToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return next();
+  }
+
+  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ message: "Unauthorized access: token missing" });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ message: "Unauthorized access: invalid token" });
+    }
+    req.user = decoded;
+    next();
+  });
+};
+
+// Route to generate JWT Token
+app.post("/jwt", (req, res) => {
+  try {
+    const user = req.body;
+    const token = jwt.sign(user, JWT_SECRET, { expiresIn: "7d" });
+    res.json({ token });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to create JWT token", error: error.message });
+  }
+});
+
 app.get("/", (req, res) => {
-    res.send("Hello from the server!");
+  res.send("Hello from the server!");
 });
 
 const client = new MongoClient(uri, {
@@ -21,7 +55,7 @@ const client = new MongoClient(uri, {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  }
+  },
 });
 
 
@@ -36,7 +70,7 @@ async function run() {
     const ideasCollection = database.collection("ideas");
     const commentsCollection = database.collection("commnets");
 
-    // GET all ideas — with optional search & category filter
+    // GET all ideas 
     app.get("/ideas", async (req, res) => {
       try {
         const { search, category } = req.query;
@@ -67,7 +101,7 @@ async function run() {
       res.send(result)
     })
 
-    // GET home — latest 6 ideas
+    // GET home 
     app.get("/home", async (req, res) => {
       try {
         const result = await ideasCollection.aggregate([{ $limit: 6 }]).toArray();
@@ -78,8 +112,8 @@ async function run() {
       }
     });
 
-    // GET ideas 
-    app.get("/ideas/user/:userId", async (req, res) => {
+    // GET ideas by user (private route)
+    app.get("/ideas/user/:userId", verifyToken, async (req, res) => {
       try {
         const { userId } = req.params;
         const result = await ideasCollection.find({ userId }).toArray();
@@ -90,8 +124,8 @@ async function run() {
       }
     });
 
-    // POST new idea
-    app.post("/ideas", async (req, res) => {
+    // POST new idea (private route)
+    app.post("/ideas", verifyToken, async (req, res) => {
       try {
         const data = req.body;
         const result = await ideasCollection.insertOne(data);
@@ -102,8 +136,8 @@ async function run() {
       }
     });
 
-    // PUT update idea by id (Edit Idea)
-    app.put("/ideas/:id", async (req, res) => {
+    // PATCH update idea (private route)
+    app.patch("/ideas/:id", verifyToken, async (req, res) => {
       try {
         const { id } = req.params;
         const updatedData = req.body;
@@ -121,8 +155,8 @@ async function run() {
       }
     });
 
-    // DELETE idea by id
-    app.delete("/ideas/:id", async (req, res) => {
+    // DELETE idea by id (private route)
+    app.delete("/ideas/:id", verifyToken, async (req, res) => {
       try {
         const { id } = req.params;
         const result = await ideasCollection.deleteOne({ _id: new ObjectId(id) });
@@ -133,8 +167,8 @@ async function run() {
       }
     });
 
-    // POST new comment
-    app.post("/comments", async (req, res) => {
+    // POST new comment (private route)
+    app.post("/comments", verifyToken, async (req, res) => {
       try {
         const data = req.body;
         const result = await commentsCollection.insertOne(data);
@@ -162,8 +196,8 @@ async function run() {
       }
     });
 
-    // GET comments by userId — for My Interactions page
-    app.get("/comments/user/:userId", async (req, res) => {
+    // GET comments by userId — for My Interactions page (private route)
+    app.get("/comments/user/:userId", verifyToken, async (req, res) => {
       try {
         const { userId } = req.params;
         const userComments = await commentsCollection.find({ userid: userId }).toArray();
@@ -188,8 +222,8 @@ async function run() {
       }
     });
 
-    // PATCH update comment
-    app.patch("/comments/:id", async (req, res) => {
+    // PATCH update comment (private route)
+    app.patch("/comments/:id", verifyToken, async (req, res) => {
       try {
         const { id } = req.params;
         const { comment } = req.body;
@@ -207,8 +241,8 @@ async function run() {
       }
     });
 
-    // DELETE comment by id
-    app.delete("/comments/:id", async (req, res) => {
+    // DELETE comment by id (private route)
+    app.delete("/comments/:id", verifyToken, async (req, res) => {
       try {
         const { id } = req.params;
         let query = { _id: id };
